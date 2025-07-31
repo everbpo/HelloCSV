@@ -17,6 +17,7 @@ import type {
 
 export interface ImporterDefinition {
   sheets: SheetDefinition[];
+  initialState?: ImporterState;
   translationResources?: Record<string, Translation>;
   theme?: ThemeVariant;
   // Called after the columns are mapped to sheet definitions by the user
@@ -59,6 +60,14 @@ export interface PersistenceConfig {
   enabled: boolean;
   customKey?: string;
 }
+
+export type StateBuilderImporterDefinition = Pick<
+  ImporterDefinition,
+  | 'sheets'
+  | 'customFileLoaders'
+  | 'customSuggestedMapper'
+  | 'onDataColumnsMapped'
+>;
 
 /**
  * mapping - user is mapping the columns from the file to the sheet columns
