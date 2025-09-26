@@ -1,13 +1,7 @@
-import { useEffect, useMemo, useState, useCallback } from 'preact/hooks';
-import { AgGridReact } from '@ag-grid-community/react';
-import { AllModules } from '@ag-grid-enterprise/all-modules';
-// Import types from the correct AG-Grid packages
-import type { 
-  ColDef, 
-  GridReadyEvent, 
-  CellValueChangedEvent,
-  GridApi
-} from '@ag-grid-community/core';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'preact/hooks';
+import { AgGridReact } from 'ag-grid-react';
+import { AllCommunityModule, ModuleRegistry, type ColDef, type GridReadyEvent, type CellValueChangedEvent, type GridApi } from 'ag-grid-community';
+import { sheetGridTheme } from '../theme/agGridTheme';
 
 import {
   SheetDefinition,
@@ -24,6 +18,11 @@ import SheetDataEditorActions from './SheetDataEditorActions';
 import { useFilteredRowData } from '../utils';
 import { useImporterState } from '@/importer/reducer';
 import { useImporterDefinition } from '@/importer/hooks';
+
+// Registrar módulos comunidad (solo una vez)
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+// El tema ahora se centraliza en sheetGridTheme (Theming API v34)
 
 interface Props {
   sheetDefinition: SheetDefinition;
@@ -56,6 +55,27 @@ export default function SheetDataEditorAGGrid({
     null
   );
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
+  const gridWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  // Debug: warn if container has zero height (grid would be invisible)
+  useEffect(() => {
+    if (gridWrapperRef.current && gridWrapperRef.current.clientHeight === 0) {
+      // eslint-disable-next-line no-console
+      console.warn('[SheetDataEditorAGGrid] El contenedor del grid tiene altura 0. Asegura que su ancestro tenga height definido.');
+    }
+  // eslint-disable-next-line no-console
+  console.info('[SheetDataEditorAGGrid] Modo Theming API v34 activo (sin clase legacy).');
+    const root = gridWrapperRef.current?.querySelector('.ag-root');
+    if (root) {
+      const styles = window.getComputedStyle(root);
+      // eslint-disable-next-line no-console
+      console.debug('[SheetDataEditorAGGrid] Root grid computed styles (extracto):', {
+        fontFamily: styles.fontFamily,
+        fontSize: styles.fontSize,
+        backgroundColor: styles.backgroundColor
+      });
+    }
+  }, []);
 
   useEffect(() => {
     setSelectedRows([]); // On changing sheets
@@ -101,7 +121,8 @@ export default function SheetDataEditorAGGrid({
             pinned: 'left',
             lockPosition: true,
             suppressMovable: true,
-            suppressResize: true,
+            // suppressResize eliminado: usar resizable:false
+            resizable: false,
             sortable: false,
             filter: false,
           },
@@ -151,6 +172,18 @@ export default function SheetDataEditorAGGrid({
   const onGridReady = useCallback((params: GridReadyEvent) => {
     setGridApi(params.api);
   }, []);
+
+  const onFirstDataRendered = useCallback(() => {
+    // Ajuste de columnas al ancho disponible cuando haya datos o columnas
+    if (gridApi) {
+      try {
+        gridApi.sizeColumnsToFit();
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.debug('sizeColumnsToFit no se pudo aplicar todavía:', e);
+      }
+    }
+  }, [gridApi]);
 
   const onCellValueChanged = useCallback((event: CellValueChangedEvent) => {
     const rowIndex = event.node.rowIndex;
@@ -215,59 +248,48 @@ export default function SheetDataEditorAGGrid({
         />
       </div>
 
-      <div className="min-h-0 flex-1 ag-theme-balham">
+    {/* Contenedor del grid: altura mínima para visibilidad. Theming aplicado sólo vía sheetGridTheme (API v34). */}
+      <div
+        ref={gridWrapperRef}
+        className="min-h-0 flex-1 hello-csv-grid-v34"
+        style={{
+          // Fallback: si la cadena ascendente no define altura, esta minHeight asegura visibilidad
+          minHeight: 400,
+          // Si el ancestro tiene height:100% / flex growth, el 100% aquí lo aprovecha; si no, queda la minHeight
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
         <AgGridReact
-          modules={AllModules}
+          theme={sheetGridTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChanged}
           onSelectionChanged={onSelectionChanged}
-          rowSelection="multiple"
-          suppressRowClickSelection={true}
+          rowSelection={{ mode: 'multiRow', enableClickSelection: false }}
           defaultColDef={{
             sortable: true,
             filter: true,
             resizable: true,
             editable: false,
+            minWidth: 100
           }}
           animateRows={true}
-          enableRangeSelection={true}
-          suppressCellSelection={false}
-          enableCellTextSelection={true}
+          enableBrowserTooltips={true}
+          onFirstDataRendered={onFirstDataRendered}
+          domLayout="normal"
+          // enableRangeSelection eliminado (Enterprise); si se requiere, migrar a Enterprise bundle
         />
       </div>
-
       <style dangerouslySetInnerHTML={{__html: `
-        .ag-cell-error {
-          background-color: #fee2e2 !important;
-          border: 1px solid #dc2626 !important;
-        }
-        
-        .ag-cell-error:hover {
-          background-color: #fecaca !important;
-        }
-        
-        .ag-theme-balham {
-          --ag-grid-size: 4px;
-          --ag-list-size: 4px;
-        }
-        
-        .ag-theme-balham .ag-header-cell-label {
-          font-weight: 600;
-        }
-        
-        .ag-theme-balham .ag-row-hover {
-          background-color: #f9fafb;
-        }
-        
-        .ag-theme-balham .ag-row-selected {
-          background-color: #dbeafe !important;
-        }
-        
-        .ag-theme-balham .ag-cell-focus {
-          border: 2px solid #3b82f6 !important;
-        }
+        /* ERROR CELLS override scoped */
+        .hello-csv-grid-v34 .ag-cell-error { background-color: #fee2e2 !important; border: 1px solid #dc2626 !important; }
+        .hello-csv-grid-v34 .ag-cell-error:hover { background-color: #fecaca !important; }
+        /* Inline editing height tweak (keep if needed) */
+        .hello-csv-grid-v34 .ag-cell.ag-cell-inline-editing { height: 50px !important; padding: 4px !important; }
       `}} />
     </div>
   );

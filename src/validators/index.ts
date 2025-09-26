@@ -1,6 +1,7 @@
 import { hasData, eachWithObject } from '../utils/functional';
 import { ImporterValidationError, ImporterValidatorDefinition } from './types';
 import { SheetColumnDefinition, SheetDefinition, SheetState } from '../types';
+import { AnyOfGroup, validateAnyOfGroups } from './schemaEnhancements';
 import { Validator } from './validator_definitions/base';
 import { buildValidatorFromDefinition } from './validator_definitions';
 import { extractReferenceColumnPossibleValues } from '../sheet/utils';
@@ -99,7 +100,8 @@ function validateSheet(
 
 export function applyValidations(
   sheetDefinitions: SheetDefinition[],
-  sheetStates: SheetState[]
+  sheetStates: SheetState[],
+  anyOfGroupsBySheet?: Record<string, AnyOfGroup[]>
 ) {
   const validationErrors: ImporterValidationError[] = [];
 
@@ -110,8 +112,12 @@ export function applyValidations(
 
     if (sheetData) {
       const errors = validateSheet(sheetDefinition, sheetData, sheetStates);
-
       validationErrors.push(...errors);
+      if (anyOfGroupsBySheet && anyOfGroupsBySheet[sheetDefinition.id]?.length) {
+        validationErrors.push(
+          ...validateAnyOfGroups(sheetDefinition, sheetData.rows, anyOfGroupsBySheet[sheetDefinition.id])
+        );
+      }
     }
   });
 

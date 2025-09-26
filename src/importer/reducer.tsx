@@ -16,6 +16,8 @@ import {
 } from '../types';
 import { setIndexedDBState } from './storage';
 import { applyValidations } from '../validators';
+// Future: supply anyOf groups via context or state extension
+const emptyAnyOfMap: Record<string, any[]> | undefined = undefined;
 import { createContext } from 'preact';
 import { ReactNode } from 'preact/compat';
 import { buildInitialState, buildState } from './state';
@@ -83,7 +85,8 @@ export const reducer = (
         mode: 'preview',
         validationErrors: applyValidations(
           state.sheetDefinitions,
-          action.payload.mappedData
+          action.payload.mappedData,
+          emptyAnyOfMap
         ),
       };
     }
@@ -109,7 +112,7 @@ export const reducer = (
       return {
         ...state,
         sheetData: applyTransformations(state.sheetDefinitions, newData),
-        validationErrors: applyValidations(state.sheetDefinitions, newData),
+  validationErrors: applyValidations(state.sheetDefinitions, newData, emptyAnyOfMap),
       };
     }
 
@@ -130,7 +133,7 @@ export const reducer = (
       return {
         ...state,
         sheetData: newData,
-        validationErrors: applyValidations(state.sheetDefinitions, newData),
+  validationErrors: applyValidations(state.sheetDefinitions, newData, emptyAnyOfMap),
       };
     }
 

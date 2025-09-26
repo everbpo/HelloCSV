@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useCallback } from 'preact/hooks';
+import { useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
+// IMPORTANTE: asegurar CSS estructural base del grid
 import { AgGridReact } from 'ag-grid-react';
-import { 
-  AllCommunityModule, 
-  ModuleRegistry, 
-  themeBalham 
-} from 'ag-grid-community';
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import { sheetGridTheme } from '../theme/agGridTheme';
 import type {
   ColDef,
   GridReadyEvent,
@@ -41,6 +39,7 @@ export default function SheetDataEditorAGGridDebug({
   setRowData,
   enumLabelDict,
 }: Props) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   // Debug logging
   useEffect(() => {
     console.log('🔍 SheetDataEditorAGGridDebug - Props received:', {
@@ -58,9 +57,12 @@ export default function SheetDataEditorAGGridDebug({
   const columnDefs = useMemo<ColDef[]>(() => {
     console.log('🔧 Creating column definitions...');
 
-    if (!sheetDefinition?.columns) {
-      console.error('❌ No sheet definition or columns found');
-      return [];
+    if (!sheetDefinition?.columns || sheetDefinition.columns.length === 0) {
+      console.error('❌ No sheet definition or columns found. Usando columnas dummy para diagnóstico.');
+      return [
+        { headerName: 'Dummy A', field: 'dummyA', editable: true, sortable: true, filter: true, resizable: true },
+        { headerName: 'Dummy B', field: 'dummyB', editable: true, sortable: true, filter: true, resizable: true }
+      ];
     }
 
     const columns: ColDef[] = sheetDefinition.columns.map((column) => {
@@ -139,17 +141,34 @@ export default function SheetDataEditorAGGridDebug({
     console.log('🔧 Processing row data...');
 
     if (!data?.rows) {
-      console.error('❌ No row data found');
-      return [];
+      console.error('❌ No row data found. Usando filas dummy para diagnóstico.');
+      return [
+        { dummyA: '—', dummyB: 'Sin data (1)' },
+        { dummyA: '—', dummyB: 'Sin data (2)' }
+      ];
+    }
+    if (data.rows.length === 0) {
+      console.warn('⚠️ data.rows vacío. Insertando filas dummy.');
+      return [
+        { dummyA: '—', dummyB: 'Vacio (1)' },
+        { dummyA: '—', dummyB: 'Vacio (2)' }
+      ];
     }
 
     console.log('✅ Row data processed:', data.rows.length, 'rows');
     return data.rows;
   }, [data]);
 
-  const onGridReady = useCallback((_params: GridReadyEvent) => {
+  const onGridReady = useCallback((params: GridReadyEvent) => {
     console.log('🎯 Grid ready event fired');
-    // Grid API is available if needed later
+    // Re-intentar ajuste de columnas cuando se monta
+    setTimeout(() => {
+      try {
+        params.api.sizeColumnsToFit();
+      } catch (e) {
+        console.warn('⚠️ sizeColumnsToFit fallo inicial', e);
+      }
+    }, 0);
   }, []);
 
   const onCellValueChangedHandler = useCallback((event: CellValueChangedEvent) => {
@@ -180,9 +199,31 @@ export default function SheetDataEditorAGGridDebug({
   }, [data, sheetDefinition, setRowData]);
 
   // Error boundary for debugging
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const el = wrapperRef.current.querySelector('.ag-root');
+    if (el) {
+      const cs = getComputedStyle(el as HTMLElement);
+      console.debug('[AGGridDebug] root styles snippet', {
+        width: (el as HTMLElement).clientWidth,
+        height: (el as HTMLElement).clientHeight,
+        fontFamily: cs.fontFamily,
+        background: cs.backgroundColor
+      });
+      if ((el as HTMLElement).clientHeight === 0) {
+        console.warn('[AGGridDebug] altura 0 -> probable falta de height en contenedor ancestro');
+      }
+    } else {
+      console.warn('[AGGridDebug] .ag-root no encontrada todavía');
+    }
+  });
+
+  const showEmptyOverlay = false; // ahora nunca mostramos overlay porque forzamos dummy
+
   try {
     return (
-      <div style={{ height: '600px', width: '100%' }}>
+      <div ref={wrapperRef} style={{ height: '600px', width: '100%', position: 'relative', border: '1px solid #ddd' }} className="hello-csv-grid-debug-v34">
+        {/* Wrapper sin clase legacy (ag-theme-balham) -> usando Theming API v34 únicamente */}
         <div style={{
           padding: '10px',
           backgroundColor: '#e3f2fd',
@@ -210,7 +251,7 @@ export default function SheetDataEditorAGGridDebug({
           rowData={rowData}
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChangedHandler}
-          theme={themeBalham}
+          theme={sheetGridTheme}
           defaultColDef={{
             sortable: true,
             filter: true,
@@ -251,6 +292,34 @@ export default function SheetDataEditorAGGridDebug({
             }
           }}
         />
+        {showEmptyOverlay && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'repeating-linear-gradient(45deg,#f8fafc,#f8fafc 10px,#f1f5f9 10px,#f1f5f9 20px)',
+            color: '#334155',
+            fontSize: 14,
+            gap: 8,
+            textAlign: 'center'
+          }}>
+            <strong>⚠️ Grid sin datos o columnas</strong>
+            <div style={{ maxWidth: 420 }}>
+              {columnDefs.length === 0 && 'No hay columnas (sheetDefinition.columns vacío o undefined). '} 
+              {rowData.length === 0 && 'No hay filas para mostrar (data.rows vacío).'}
+            </div>
+            <code style={{ fontSize: 12, background: '#e2e8f0', padding: '2px 6px', borderRadius: 4 }}>
+              sheetId: {sheetDefinition?.id || 'N/A'} | cols: {columnDefs.length} | rows: {rowData.length}
+            </code>
+          </div>
+        )}
+        <style dangerouslySetInnerHTML={{__html:`
+          .hello-csv-grid-debug-v34 .ag-root-wrapper { min-height: 400px; }
+          .hello-csv-grid-debug-v34 .ag-cell-inline-editing { background:#fff !important; }
+        `}} />
       </div>
     );
   } catch (error) {
