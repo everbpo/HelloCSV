@@ -40,17 +40,28 @@ export default function SheetDataEditorAGGridDebug({
   enumLabelDict,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  // Debug logging
+  // Debug logging with more detailed info
   useEffect(() => {
     console.log('🔍 SheetDataEditorAGGridDebug - Props received:', {
       sheetDefinition: sheetDefinition ? {
         id: sheetDefinition.id,
-        columns: sheetDefinition.columns?.length || 0
+        columns: sheetDefinition.columns?.length || 0,
+        columnsDetails: sheetDefinition.columns?.map(c => ({ id: c.id, label: c.label, type: c.type })) || []
       } : 'undefined',
       dataRowsCount: data?.rows?.length || 0,
+      dataRowsPreview: data?.rows?.slice(0, 2) || 'no rows',
       validationErrorsCount: sheetValidationErrors?.length || 0,
-      enumLabelDict: enumLabelDict ? Object.keys(enumLabelDict) : 'undefined'
+      enumLabelDict: enumLabelDict ? Object.keys(enumLabelDict) : 'undefined',
+      wrapperRefCurrent: !!wrapperRef.current
     });
+    
+    // Check if this component is actually receiving valid data
+    if (!sheetDefinition || !sheetDefinition.columns || sheetDefinition.columns.length === 0) {
+      console.error('❌ CRITICAL: No sheetDefinition or columns - AG Grid cannot render');
+    }
+    if (!data || !data.rows || data.rows.length === 0) {
+      console.error('❌ CRITICAL: No data rows - AG Grid will be empty');
+    }
   }, [sheetDefinition, data, sheetValidationErrors, enumLabelDict]);
 
   // Simple column definitions - minimal for debugging
@@ -161,26 +172,54 @@ export default function SheetDataEditorAGGridDebug({
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     console.log('🎯 Grid ready event fired');
+    console.log('🎯 Grid API available:', !!params.api);
     
     // Verify AG Grid DOM structure is properly initialized
     setTimeout(() => {
       try {
         const gridElement = wrapperRef.current?.querySelector('.ag-root');
+        const gridWrapper = wrapperRef.current?.querySelector('.ag-root-wrapper');
+        const agGridReact = wrapperRef.current?.querySelector('.ag-theme-balham, .ag-theme-balham-dark');
+        
+        console.log('🔍 AG Grid DOM elements:', {
+          agRoot: !!gridElement,
+          agRootWrapper: !!gridWrapper,
+          agTheme: !!agGridReact,
+          wrapperChildren: wrapperRef.current?.children.length
+        });
+        
         if (gridElement) {
-          console.log('✅ AG Grid DOM structure initialized successfully');
+          const styles = getComputedStyle(gridElement as HTMLElement);
+          console.log('✅ AG Grid DOM structure initialized successfully', {
+            width: (gridElement as HTMLElement).clientWidth,
+            height: (gridElement as HTMLElement).clientHeight,
+            display: styles.display,
+            visibility: styles.visibility,
+            opacity: styles.opacity
+          });
+          
+          // Try to get row and column info
+          const rowCount = params.api.getDisplayedRowCount();
+          console.log('📊 Grid content info:', {
+            displayedRows: rowCount
+          });
+          
           params.api.sizeColumnsToFit();
         } else {
           console.warn('⚠️ AG Grid DOM not found after grid ready - retrying...');
           // Retry after a longer delay
           setTimeout(() => {
-            if (wrapperRef.current?.querySelector('.ag-root')) {
+            const retryElement = wrapperRef.current?.querySelector('.ag-root');
+            if (retryElement) {
               console.log('✅ AG Grid DOM found on retry');
               params.api.sizeColumnsToFit();
+            } else {
+              console.error('❌ AG Grid DOM still not found on retry - possible rendering issue');
             }
           }, 200);
         }
       } catch (e) {
-        console.warn('⚠️ sizeColumnsToFit failed:', e);
+        console.warn('⚠️ Grid ready check failed:', e);
       }
     }, 50); // Slightly longer delay to ensure DOM is ready
   }, []);
@@ -238,12 +277,10 @@ export default function SheetDataEditorAGGridDebug({
     return () => clearTimeout(timeoutId);
   }, [rowData.length]); // Only run when row data changes
 
-  const showEmptyOverlay = false; // ahora nunca mostramos overlay porque forzamos dummy
-
   try {
     return (
       <div ref={wrapperRef} style={{ height: '600px', width: '100%', position: 'relative', border: '1px solid #ddd' }} className="hello-csv-grid-debug-v34">
-        {/* Wrapper sin clase legacy (ag-theme-balham) -> usando Theming API v34 únicamente */}
+        {/* Enhanced debug info */}
         <div style={{
           padding: '10px',
           backgroundColor: '#e3f2fd',
@@ -259,6 +296,7 @@ export default function SheetDataEditorAGGridDebug({
           <span>Columnas: {columnDefs.length}</span>
           <span>Filas: {rowData.length}</span>
           <span>Errores: {sheetValidationErrors.length}</span>
+          <span>Wrapper: {wrapperRef.current ? '✅' : '❌'}</span>
           {sheetValidationErrors.length > 0 && (
             <span style={{ color: '#d32f2f', fontWeight: 'bold' }}>
               ⚠️ Hay celdas con errores (fondo rojo)
@@ -266,56 +304,65 @@ export default function SheetDataEditorAGGridDebug({
           )}
         </div>
 
-        <AgGridReact
-          columnDefs={columnDefs}
-          rowData={rowData}
-          onGridReady={onGridReady}
-          onCellValueChanged={onCellValueChangedHandler}
-          theme={sheetGridTheme}
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-            editable: true,
-            minWidth: 100,
-          }}
+        {/* AG Grid with explicit height container */}
+        <div style={{ height: '500px', width: '100%' }} className="ag-theme-balham">
+          <AgGridReact
+            columnDefs={columnDefs}
+            rowData={rowData}
+            onGridReady={onGridReady}
+            onCellValueChanged={onCellValueChangedHandler}
+            theme={sheetGridTheme}
+            defaultColDef={{
+              sortable: true,
+              filter: true,
+              resizable: true,
+              editable: true,
+              minWidth: 100,
+            }}
 
-          // Selección y edición (sintaxis moderna AG-Grid v34)
-          rowSelection={{
-            mode: 'multiRow',
-            enableClickSelection: false
-          }}
+            // Selección y edición (sintaxis moderna AG-Grid v34)
+            rowSelection={{
+              mode: 'multiRow',
+              enableClickSelection: false
+            }}
 
-          // Animaciones y UX
-          animateRows={true}
-          enableBrowserTooltips={true}
+            // Animaciones y UX
+            animateRows={true}
+            enableBrowserTooltips={true}
 
-          // Configuración responsive adicional
-          domLayout="normal"
+            // Configuración responsive adicional
+            domLayout="normal"
 
-          // Estilos para mejor responsive
-          onFirstDataRendered={(params) => {
-            // Auto-resize columns en dispositivos grandes
-            if (window.innerWidth > 1024) {
-              params.api.sizeColumnsToFit();
-            }
-          }}
+            // Estilos para mejor responsive
+            onFirstDataRendered={(params) => {
+              console.log('📊 First data rendered - rows:', params.api.getDisplayedRowCount());
+              // Auto-resize columns en dispositivos grandes
+              if (window.innerWidth > 1024) {
+                params.api.sizeColumnsToFit();
+              }
+            }}
 
-          // Responsive breakpoints
-          onGridSizeChanged={(params) => {
-            if (window.innerWidth <= 768) {
-              // En móviles, usar scroll horizontal
-              params.api.sizeColumnsToFit();
-            } else {
-              // En desktop, ajustar columnas
-              params.api.sizeColumnsToFit();
-            }
-          }}
-        />
-        {showEmptyOverlay && (
+            // Responsive breakpoints
+            onGridSizeChanged={(params) => {
+              console.log('📏 Grid size changed');
+              if (window.innerWidth <= 768) {
+                // En móviles, usar scroll horizontal
+                params.api.sizeColumnsToFit();
+              } else {
+                // En desktop, ajustar columnas
+                params.api.sizeColumnsToFit();
+              }
+            }}
+          />
+        </div>
+        {/* Show overlay if there's truly no data to display */}
+        {(columnDefs.length === 0 || rowData.length === 0) && (
           <div style={{
             position: 'absolute',
-            inset: 0,
+            top: '80px',
+            left: '10px',
+            right: '10px',
+            bottom: '10px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -324,7 +371,9 @@ export default function SheetDataEditorAGGridDebug({
             color: '#334155',
             fontSize: 14,
             gap: 8,
-            textAlign: 'center'
+            textAlign: 'center',
+            borderRadius: '4px',
+            border: '2px solid #e2e8f0'
           }}>
             <strong>⚠️ Grid sin datos o columnas</strong>
             <div style={{ maxWidth: 420 }}>
@@ -336,9 +385,21 @@ export default function SheetDataEditorAGGridDebug({
             </code>
           </div>
         )}
+        
         <style dangerouslySetInnerHTML={{__html:`
-          .hello-csv-grid-debug-v34 .ag-root-wrapper { min-height: 400px; }
-          .hello-csv-grid-debug-v34 .ag-cell-inline-editing { background:#fff !important; }
+          .hello-csv-grid-debug-v34 .ag-root-wrapper { 
+            min-height: 400px; 
+          }
+          .hello-csv-grid-debug-v34 .ag-theme-balham {
+            --ag-font-size: 13px;
+            --ag-font-family: inherit;
+          }
+          .hello-csv-grid-debug-v34 .ag-cell-inline-editing { 
+            background:#fff !important; 
+          }
+          .hello-csv-grid-debug-v34 .ag-root {
+            border: 1px solid #ddd !important;
+          }
         `}} />
       </div>
     );
