@@ -1,5 +1,5 @@
 import { ReactNode, forwardRef } from 'preact/compat';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { HEALDESS_UI_PORTAL_ROOT_ID, ROOT_CLASS } from '../constants';
 
 interface Props {
@@ -11,6 +11,26 @@ export default forwardRef<HTMLDivElement, Props>(function Root(
   { children, withFullHeight },
   ref
 ) {
+  // Crear un ref interno como fallback
+  const internalRef = useRef<HTMLDivElement>(null);
+  
+  // Función para manejar la asignación de ref compatible con React/Preact
+  const refCallback = (element: HTMLDivElement | null) => {
+    // Asignar al ref interno
+    if (internalRef.current !== element) {
+      internalRef.current = element;
+    }
+    
+    // Manejar el ref externo de manera segura
+    if (ref) {
+      if (typeof ref === 'function') {
+        ref(element);
+      } else if (ref && typeof ref === 'object' && 'current' in ref) {
+        (ref as any).current = element;
+      }
+    }
+  };
+
   useEffect(() => {
     /// We need to add a class to the portal root to style the dropdown
     /// that is because we have our css scoped to componenents within element with class hello-csv
@@ -41,7 +61,7 @@ export default forwardRef<HTMLDivElement, Props>(function Root(
       style={{ display: 'contents' }}
     >
       <div
-        ref={ref}
+        ref={refCallback}
         className={`min-h-0 w-full overflow-auto bg-white ${withFullHeight ? 'h-full' : ''}`}
       >
         {children}

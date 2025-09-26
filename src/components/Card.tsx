@@ -29,8 +29,20 @@ const Card = forwardRef<HTMLDivElement, Props>(
   ({ children, className, variant, withPadding = true }, ref) => {
     const componentClassName = baseClasses({ variant, withPadding });
 
+    // Función para manejar la asignación de ref compatible con React/Preact
+    const refCallback = (element: HTMLDivElement | null) => {
+      // Manejar el ref externo de manera segura
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(element);
+        } else if (ref && typeof ref === 'object' && 'current' in ref) {
+          (ref as any).current = element;
+        }
+      }
+    };
+
     return (
-      <div ref={ref} className={`${componentClassName} ${className}`}>
+      <div ref={refCallback} className={`${componentClassName} ${className}`}>
         {children}
       </div>
     );

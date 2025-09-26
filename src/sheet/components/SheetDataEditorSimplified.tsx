@@ -40,14 +40,13 @@ export default function SheetDataEditor({
   // States for filtering and view mode
   const [selectedRows, setSelectedRows] = useState<SheetRow[]>([]);
   const [searchPhrase, setSearchPhrase] = useState<string>('');
-  const [errorColumnFilter, setErrorColumnFilter] = useState<string | null>(null);
+  const [errorColumnFilter, setErrorColumnFilter] = useState<string | null>('');
   const [viewMode, setViewMode] = useState<SheetViewMode>('all');
 
   // Clear selection when data changes
   useEffect(() => {
     setSelectedRows([]);
-    setViewMode('all');
-  }, [sheetDefinition, data]);
+  }, [data]);
 
   // Filtered row data based on current filters
   const rowData = useFilteredRowData(

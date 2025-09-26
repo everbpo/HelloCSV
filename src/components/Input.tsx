@@ -39,6 +39,18 @@ const Input = forwardRef<HTMLInputElement, Props>(
   ) => {
     const { t } = useTranslations();
     const [localValue, setLocalValue] = useState(value);
+    
+    // Función para manejar la asignación de ref compatible con React/Preact
+    const refCallback = (element: HTMLInputElement | null) => {
+      // Manejar el ref externo de manera segura
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(element);
+        } else if (ref && typeof ref === 'object' && 'current' in ref) {
+          (ref as any).current = element;
+        }
+      }
+    };
 
     useEffect(() => {
       setLocalValue(value);
@@ -59,7 +71,7 @@ const Input = forwardRef<HTMLInputElement, Props>(
       <div className="grid grid-cols-1">
         <input
           aria-label={props['aria-label']}
-          ref={ref}
+          ref={refCallback}
           type={type}
           inputMode={type === 'number' ? 'numeric' : 'text'}
           placeholder={placeholder}

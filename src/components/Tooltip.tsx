@@ -34,8 +34,8 @@ export default function Tooltip({
 }: Props) {
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [tooltipContainer, setTooltipContainer] =
     useState<HTMLDivElement | null>(null);
 
