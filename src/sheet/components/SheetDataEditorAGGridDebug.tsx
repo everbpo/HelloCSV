@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
 // IMPORTANTE: asegurar CSS estructural base del grid
 import { AgGridReact } from 'ag-grid-react';
-import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule, ModuleRegistry, themeQuartz } from 'ag-grid-community';
+// Import AG-Grid v34 CSS themes
+import 'ag-grid-community/styles/ag-grid.min.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
 // import { sheetGridTheme } from '../theme/agGridTheme';
 import type {
   ColDef,
@@ -40,6 +43,18 @@ export default function SheetDataEditorAGGridDebug({
   enumLabelDict,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  
+  // Create custom theme configuration for v34
+  const customTheme = useMemo(() => {
+    return themeQuartz.withParams({
+      fontSize: 14,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      rowHeight: 36,
+      headerHeight: 40,
+      borderRadius: 4,
+    });
+  }, []);
+
   // Debug logging with more detailed info
   useEffect(() => {
     console.log('🔍 SheetDataEditorAGGridDebug - Props received:', {
@@ -177,7 +192,7 @@ export default function SheetDataEditorAGGridDebug({
       try {
         const gridElement = wrapperRef.current?.querySelector('.ag-root');
         const gridWrapper = wrapperRef.current?.querySelector('.ag-root-wrapper');
-        const agGridReact = wrapperRef.current?.querySelector('.ag-theme-balham, .ag-theme-balham-dark');
+        const agGridReact = wrapperRef.current?.querySelector('.ag-root');
         
         console.log('🔍 AG Grid DOM elements:', {
           agRoot: !!gridElement,
@@ -302,15 +317,14 @@ export default function SheetDataEditorAGGridDebug({
           )}
         </div>
 
-        {/* AG Grid with explicit height container and fallback theme */}
-        <div style={{ height: '500px', width: '100%' }} className="ag-theme-balham">
+        {/* AG Grid with explicit height container and v34 theme */}
+        <div style={{ height: '500px', width: '100%' }} className="ag-theme-quartz">
           <AgGridReact
+            theme={customTheme}
             columnDefs={columnDefs}
             rowData={rowData}
             onGridReady={onGridReady}
             onCellValueChanged={onCellValueChangedHandler}
-            // Try without custom theme first - use default Balham theme
-            // theme={sheetGridTheme}
             defaultColDef={{
               sortable: true,
               filter: true,
@@ -389,16 +403,6 @@ export default function SheetDataEditorAGGridDebug({
         <style dangerouslySetInnerHTML={{__html:`
           .hello-csv-grid-debug-v34 .ag-root-wrapper { 
             min-height: 400px; 
-          }
-          .hello-csv-grid-debug-v34 .ag-theme-balham {
-            --ag-font-size: 13px;
-            --ag-font-family: inherit;
-          }
-          .hello-csv-grid-debug-v34 .ag-cell-inline-editing { 
-            background:#fff !important; 
-          }
-          .hello-csv-grid-debug-v34 .ag-root {
-            border: 1px solid #ddd !important;
           }
         `}} />
       </div>
