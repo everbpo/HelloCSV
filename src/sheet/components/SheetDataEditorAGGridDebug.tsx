@@ -2,7 +2,7 @@ import { useEffect, useMemo, useCallback, useRef } from 'preact/hooks';
 // IMPORTANTE: asegurar CSS estructural base del grid
 import { AgGridReact } from 'ag-grid-react';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
-import { sheetGridTheme } from '../theme/agGridTheme';
+// import { sheetGridTheme } from '../theme/agGridTheme';
 import type {
   ColDef,
   GridReadyEvent,
@@ -302,20 +302,22 @@ export default function SheetDataEditorAGGridDebug({
           )}
         </div>
 
-        {/* AG Grid with explicit height container */}
+        {/* AG Grid with explicit height container and fallback theme */}
         <div style={{ height: '500px', width: '100%' }} className="ag-theme-balham">
           <AgGridReact
             columnDefs={columnDefs}
             rowData={rowData}
             onGridReady={onGridReady}
             onCellValueChanged={onCellValueChangedHandler}
-            theme={sheetGridTheme}
+            // Try without custom theme first - use default Balham theme
+            // theme={sheetGridTheme}
             defaultColDef={{
               sortable: true,
               filter: true,
               resizable: true,
               editable: true,
               minWidth: 100,
+              width: 150,
             }}
 
             // Selección y edición (sintaxis moderna AG-Grid v34)
