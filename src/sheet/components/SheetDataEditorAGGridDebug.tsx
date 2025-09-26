@@ -71,8 +71,8 @@ export default function SheetDataEditorAGGridDebug({
     if (!sheetDefinition?.columns || sheetDefinition.columns.length === 0) {
       console.error('❌ No sheet definition or columns found. Usando columnas dummy para diagnóstico.');
       return [
-        { headerName: 'Dummy A', field: 'dummyA', editable: true, sortable: true, filter: true, resizable: true },
-        { headerName: 'Dummy B', field: 'dummyB', editable: true, sortable: true, filter: true, resizable: true }
+        { headerName: 'Dummy A', field: 'dummyA', editable: true, sortable: true, filter: true, resizable: true, width: 200 },
+        { headerName: 'Dummy B', field: 'dummyB', editable: true, sortable: true, filter: true, resizable: true, width: 200 }
       ];
     }
 
@@ -97,9 +97,7 @@ export default function SheetDataEditorAGGridDebug({
         sortable: true,
         filter: true,
         resizable: true,
-        flex: 1, // Responsive: columnas se ajustan al ancho disponible
-        minWidth: 120,
-        maxWidth: 300,
+        width: 150, // Fixed width to ensure visibility
         cellEditor,
         cellEditorParams,
 
