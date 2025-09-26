@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useCallback } from 'preact/hooks';
-import { AgGridReact } from '@ag-grid-community/react';
-import { AllModules } from '@ag-grid-enterprise/all-modules';
-import type { 
-  ColDef, 
-  GridReadyEvent, 
+import { AgGridReact } from 'ag-grid-react';
+import { 
+  AllCommunityModule, 
+  ModuleRegistry, 
+  themeBalham 
+} from 'ag-grid-community';
+import type {
+  ColDef,
+  GridReadyEvent,
   CellValueChangedEvent
-} from '@ag-grid-community/core';
+} from 'ag-grid-community';
 
 import {
   SheetDefinition,
@@ -15,6 +19,9 @@ import {
   ImporterValidationError,
   RemoveRowsPayload,
 } from '@/types';
+
+// Register all Community features
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 interface Props {
   sheetDefinition: SheetDefinition;
@@ -50,7 +57,7 @@ export default function SheetDataEditorAGGridDebug({
   // Simple column definitions - minimal for debugging
   const columnDefs = useMemo<ColDef[]>(() => {
     console.log('🔧 Creating column definitions...');
-    
+
     if (!sheetDefinition?.columns) {
       console.error('❌ No sheet definition or columns found');
       return [];
@@ -64,7 +71,7 @@ export default function SheetDataEditorAGGridDebug({
       if (column.type === 'enum' && column.typeArguments?.values) {
         cellEditor = 'agSelectCellEditor';
         cellEditorParams = {
-          values: column.typeArguments.values.map((v: any) => 
+          values: column.typeArguments.values.map((v: any) =>
             typeof v === 'object' ? v.value : v
           )
         };
@@ -82,18 +89,18 @@ export default function SheetDataEditorAGGridDebug({
         maxWidth: 300,
         cellEditor,
         cellEditorParams,
-        
+
         // Función para pintar celdas con errores de rojo
         cellStyle: (params: any) => {
           const rowIndex = params.node?.rowIndex;
           const columnId = params.colDef?.field;
-          
+
           // Buscar si hay errores para esta celda específica
-          const hasError = sheetValidationErrors.some(error => 
-            error.rowIndex === rowIndex && 
+          const hasError = sheetValidationErrors.some(error =>
+            error.rowIndex === rowIndex &&
             (error.columnId === columnId || !error.columnId)
           );
-          
+
           if (hasError) {
             return {
               backgroundColor: '#ffebee',
@@ -101,24 +108,24 @@ export default function SheetDataEditorAGGridDebug({
               color: '#c62828'
             };
           }
-          
+
           return null;
         },
-        
+
         // Tooltip con información del error si existe
         tooltipValueGetter: (params: any) => {
           const rowIndex = params.node?.rowIndex;
           const columnId = params.colDef?.field;
-          
-          const error = sheetValidationErrors.find(error => 
-            error.rowIndex === rowIndex && 
+
+          const error = sheetValidationErrors.find(error =>
+            error.rowIndex === rowIndex &&
             (error.columnId === columnId || !error.columnId)
           );
-          
+
           if (error) {
             return `❌ Error: ${error.message}`;
           }
-          
+
           return params.value;
         }
       };
@@ -130,7 +137,7 @@ export default function SheetDataEditorAGGridDebug({
 
   const rowData = useMemo(() => {
     console.log('🔧 Processing row data...');
-    
+
     if (!data?.rows) {
       console.error('❌ No row data found');
       return [];
@@ -175,60 +182,10 @@ export default function SheetDataEditorAGGridDebug({
   // Error boundary for debugging
   try {
     return (
-      <div style={{ height: '600px', width: '100%' }} className="ag-theme-balham">
-        {/* Estilos CSS adicionales para responsividad */}
-        <style>
-          {`
-            /* Responsive AG-Grid styles */
-            .ag-theme-balham {
-              --ag-grid-size: 4px;
-              --ag-list-item-height: 24px;
-            }
-            
-            .ag-theme-balham .ag-cell {
-              padding-left: 8px;
-              padding-right: 8px;
-            }
-            
-            .ag-theme-balham .ag-header-cell {
-              padding-left: 8px;
-              padding-right: 8px;
-            }
-            
-            /* Error cell styling */
-            .ag-cell-error {
-              background-color: #ffebee !important;
-              border: 1px solid #f44336 !important;
-              color: #c62828 !important;
-            }
-            
-            /* Responsive breakpoints */
-            @media (max-width: 768px) {
-              .ag-theme-balham {
-                --ag-grid-size: 3px;
-                --ag-list-item-height: 20px;
-                font-size: 12px;
-              }
-              
-              .ag-theme-balham .ag-cell,
-              .ag-theme-balham .ag-header-cell {
-                padding-left: 4px;
-                padding-right: 4px;
-              }
-            }
-            
-            @media (max-width: 480px) {
-              .ag-theme-balham {
-                --ag-grid-size: 2px;
-                font-size: 11px;
-              }
-            }
-          `}
-        </style>
-        
-        <div style={{ 
-          padding: '10px', 
-          backgroundColor: '#e3f2fd', 
+      <div style={{ height: '600px', width: '100%' }}>
+        <div style={{
+          padding: '10px',
+          backgroundColor: '#e3f2fd',
           marginBottom: '10px',
           fontSize: '12px',
           borderRadius: '4px',
@@ -247,13 +204,13 @@ export default function SheetDataEditorAGGridDebug({
             </span>
           )}
         </div>
-        
+
         <AgGridReact
-          modules={AllModules}
           columnDefs={columnDefs}
           rowData={rowData}
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChangedHandler}
+          theme={themeBalham}
           defaultColDef={{
             sortable: true,
             filter: true,
@@ -261,18 +218,20 @@ export default function SheetDataEditorAGGridDebug({
             editable: true,
             minWidth: 100,
           }}
-          
-          // Selección y edición
-          rowSelection="multiple"
-          suppressRowClickSelection={true}
-          
+
+          // Selección y edición (sintaxis moderna AG-Grid v34)
+          rowSelection={{
+            mode: 'multiRow',
+            enableClickSelection: false
+          }}
+
           // Animaciones y UX
           animateRows={true}
           enableBrowserTooltips={true}
-          
+
           // Configuración responsive adicional
           domLayout="normal"
-          
+
           // Estilos para mejor responsive
           onFirstDataRendered={(params) => {
             // Auto-resize columns en dispositivos grandes
@@ -280,7 +239,7 @@ export default function SheetDataEditorAGGridDebug({
               params.api.sizeColumnsToFit();
             }
           }}
-          
+
           // Responsive breakpoints
           onGridSizeChanged={(params) => {
             if (window.innerWidth <= 768) {
@@ -297,9 +256,9 @@ export default function SheetDataEditorAGGridDebug({
   } catch (error) {
     console.error('❌ Error rendering AG-Grid:', error);
     return (
-      <div style={{ 
-        padding: '20px', 
-        backgroundColor: '#ffebee', 
+      <div style={{
+        padding: '20px',
+        backgroundColor: '#ffebee',
         border: '1px solid #f44336',
         borderRadius: '4px',
         color: '#c62828'
