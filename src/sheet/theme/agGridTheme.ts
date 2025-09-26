@@ -1,6 +1,5 @@
 // Central AG Grid v34 theming configuration for HelloCSV
-// Uses the new Theming API (no legacy CSS theme classes)
-import 'ag-grid-community/styles/ag-grid.css';
+// Uses the new Theming API (no legacy CSS theme classes or global CSS imports)
 import { themeBalham } from 'ag-grid-community';
 
 // NOTE: Only use supported params. If a param is ignored by AG Grid it will fallback silently.

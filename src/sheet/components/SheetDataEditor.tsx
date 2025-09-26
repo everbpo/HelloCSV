@@ -107,7 +107,7 @@ export default function SheetDataEditor({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto ag-theme-balham" ref={tableContainerRef}>
+      <div className="min-h-0 flex-1 overflow-auto" ref={tableContainerRef}>
         <SheetDataEditorAGGrid
           sheetDefinition={sheetDefinition}
           data={data}

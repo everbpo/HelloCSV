@@ -262,8 +262,13 @@ export default function SheetDataEditorAGGrid({
           flexDirection: 'column'
         }}
       >
-        <AgGridReact
-          theme={sheetGridTheme}
+        <div style={{
+            flex: '1 1 auto',
+            width: '100%',
+            minHeight: 0
+          }}>
+          <AgGridReact
+            theme={sheetGridTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           onGridReady={onGridReady}
@@ -283,6 +288,7 @@ export default function SheetDataEditorAGGrid({
           domLayout="normal"
           // enableRangeSelection eliminado (Enterprise); si se requiere, migrar a Enterprise bundle
         />
+        </div>
       </div>
       <style dangerouslySetInnerHTML={{__html: `
         /* ERROR CELLS override scoped */

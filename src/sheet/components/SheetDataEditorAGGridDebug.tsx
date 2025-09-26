@@ -161,14 +161,28 @@ export default function SheetDataEditorAGGridDebug({
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     console.log('🎯 Grid ready event fired');
-    // Re-intentar ajuste de columnas cuando se monta
+    
+    // Verify AG Grid DOM structure is properly initialized
     setTimeout(() => {
       try {
-        params.api.sizeColumnsToFit();
+        const gridElement = wrapperRef.current?.querySelector('.ag-root');
+        if (gridElement) {
+          console.log('✅ AG Grid DOM structure initialized successfully');
+          params.api.sizeColumnsToFit();
+        } else {
+          console.warn('⚠️ AG Grid DOM not found after grid ready - retrying...');
+          // Retry after a longer delay
+          setTimeout(() => {
+            if (wrapperRef.current?.querySelector('.ag-root')) {
+              console.log('✅ AG Grid DOM found on retry');
+              params.api.sizeColumnsToFit();
+            }
+          }, 200);
+        }
       } catch (e) {
-        console.warn('⚠️ sizeColumnsToFit fallo inicial', e);
+        console.warn('⚠️ sizeColumnsToFit failed:', e);
       }
-    }, 0);
+    }, 50); // Slightly longer delay to ensure DOM is ready
   }, []);
 
   const onCellValueChangedHandler = useCallback((event: CellValueChangedEvent) => {
@@ -198,25 +212,31 @@ export default function SheetDataEditorAGGridDebug({
     }
   }, [data, sheetDefinition, setRowData]);
 
-  // Error boundary for debugging
+  // AG Grid diagnostic - only run after grid is ready and has data
   useEffect(() => {
-    if (!wrapperRef.current) return;
-    const el = wrapperRef.current.querySelector('.ag-root');
-    if (el) {
-      const cs = getComputedStyle(el as HTMLElement);
-      console.debug('[AGGridDebug] root styles snippet', {
-        width: (el as HTMLElement).clientWidth,
-        height: (el as HTMLElement).clientHeight,
-        fontFamily: cs.fontFamily,
-        background: cs.backgroundColor
-      });
-      if ((el as HTMLElement).clientHeight === 0) {
-        console.warn('[AGGridDebug] altura 0 -> probable falta de height en contenedor ancestro');
+    if (!wrapperRef.current || rowData.length === 0) return;
+    
+    // Use a timeout to ensure AG Grid has finished rendering
+    const timeoutId = setTimeout(() => {
+      const el = wrapperRef.current?.querySelector('.ag-root');
+      if (el) {
+        const cs = getComputedStyle(el as HTMLElement);
+        console.debug('[AGGridDebug] root styles snippet', {
+          width: (el as HTMLElement).clientWidth,
+          height: (el as HTMLElement).clientHeight,
+          fontFamily: cs.fontFamily,
+          background: cs.backgroundColor
+        });
+        if ((el as HTMLElement).clientHeight === 0) {
+          console.warn('[AGGridDebug] altura 0 -> probable falta de height en contenedor ancestro');
+        }
+      } else {
+        console.debug('[AGGridDebug] .ag-root not found - grid may still be initializing');
       }
-    } else {
-      console.warn('[AGGridDebug] .ag-root no encontrada todavía');
-    }
-  });
+    }, 100); // Small delay to allow AG Grid to finish rendering
+
+    return () => clearTimeout(timeoutId);
+  }, [rowData.length]); // Only run when row data changes
 
   const showEmptyOverlay = false; // ahora nunca mostramos overlay porque forzamos dummy
 
