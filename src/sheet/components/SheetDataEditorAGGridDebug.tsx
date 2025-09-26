@@ -56,20 +56,77 @@ export default function SheetDataEditorAGGridDebug({
       return [];
     }
 
-    const columns: ColDef[] = sheetDefinition.columns.map((column) => ({
-      headerName: column.label || column.id,
-      field: column.id,
-      editable: true,
-      sortable: true,
-      filter: true,
-      resizable: true,
-      width: 150,
-      minWidth: 100,
-    }));
+    const columns: ColDef[] = sheetDefinition.columns.map((column) => {
+      // Configurar el editor según el tipo de campo
+      let cellEditor = 'agTextCellEditor';
+      let cellEditorParams: any = {};
+
+      if (column.type === 'enum' && column.typeArguments?.values) {
+        cellEditor = 'agSelectCellEditor';
+        cellEditorParams = {
+          values: column.typeArguments.values.map((v: any) => 
+            typeof v === 'object' ? v.value : v
+          )
+        };
+      }
+
+      return {
+        headerName: column.label || column.id,
+        field: column.id,
+        editable: true,
+        sortable: true,
+        filter: true,
+        resizable: true,
+        flex: 1, // Responsive: columnas se ajustan al ancho disponible
+        minWidth: 120,
+        maxWidth: 300,
+        cellEditor,
+        cellEditorParams,
+        
+        // Función para pintar celdas con errores de rojo
+        cellStyle: (params: any) => {
+          const rowIndex = params.node?.rowIndex;
+          const columnId = params.colDef?.field;
+          
+          // Buscar si hay errores para esta celda específica
+          const hasError = sheetValidationErrors.some(error => 
+            error.rowIndex === rowIndex && 
+            (error.columnId === columnId || !error.columnId)
+          );
+          
+          if (hasError) {
+            return {
+              backgroundColor: '#ffebee',
+              border: '1px solid #f44336',
+              color: '#c62828'
+            };
+          }
+          
+          return null;
+        },
+        
+        // Tooltip con información del error si existe
+        tooltipValueGetter: (params: any) => {
+          const rowIndex = params.node?.rowIndex;
+          const columnId = params.colDef?.field;
+          
+          const error = sheetValidationErrors.find(error => 
+            error.rowIndex === rowIndex && 
+            (error.columnId === columnId || !error.columnId)
+          );
+          
+          if (error) {
+            return `❌ Error: ${error.message}`;
+          }
+          
+          return params.value;
+        }
+      };
+    });
 
     console.log('✅ Column definitions created:', columns.length);
     return columns;
-  }, [sheetDefinition]);
+  }, [sheetDefinition, sheetValidationErrors]);
 
   const rowData = useMemo(() => {
     console.log('🔧 Processing row data...');
@@ -118,17 +175,77 @@ export default function SheetDataEditorAGGridDebug({
   // Error boundary for debugging
   try {
     return (
-      <div style={{ height: '400px', width: '100%' }} className="ag-theme-balham">
+      <div style={{ height: '600px', width: '100%' }} className="ag-theme-balham">
+        {/* Estilos CSS adicionales para responsividad */}
+        <style>
+          {`
+            /* Responsive AG-Grid styles */
+            .ag-theme-balham {
+              --ag-grid-size: 4px;
+              --ag-list-item-height: 24px;
+            }
+            
+            .ag-theme-balham .ag-cell {
+              padding-left: 8px;
+              padding-right: 8px;
+            }
+            
+            .ag-theme-balham .ag-header-cell {
+              padding-left: 8px;
+              padding-right: 8px;
+            }
+            
+            /* Error cell styling */
+            .ag-cell-error {
+              background-color: #ffebee !important;
+              border: 1px solid #f44336 !important;
+              color: #c62828 !important;
+            }
+            
+            /* Responsive breakpoints */
+            @media (max-width: 768px) {
+              .ag-theme-balham {
+                --ag-grid-size: 3px;
+                --ag-list-item-height: 20px;
+                font-size: 12px;
+              }
+              
+              .ag-theme-balham .ag-cell,
+              .ag-theme-balham .ag-header-cell {
+                padding-left: 4px;
+                padding-right: 4px;
+              }
+            }
+            
+            @media (max-width: 480px) {
+              .ag-theme-balham {
+                --ag-grid-size: 2px;
+                font-size: 11px;
+              }
+            }
+          `}
+        </style>
+        
         <div style={{ 
           padding: '10px', 
           backgroundColor: '#e3f2fd', 
           marginBottom: '10px',
           fontSize: '12px',
-          borderRadius: '4px'
+          borderRadius: '4px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '10px',
+          alignItems: 'center'
         }}>
-          <strong>🔍 AG-Grid Debug Info:</strong><br />
-          Columns: {columnDefs.length} | Rows: {rowData.length} | 
-          Validation Errors: {sheetValidationErrors.length}
+          <strong>🔍 AG-Grid Debug Info:</strong>
+          <span>Columnas: {columnDefs.length}</span>
+          <span>Filas: {rowData.length}</span>
+          <span>Errores: {sheetValidationErrors.length}</span>
+          {sheetValidationErrors.length > 0 && (
+            <span style={{ color: '#d32f2f', fontWeight: 'bold' }}>
+              ⚠️ Hay celdas con errores (fondo rojo)
+            </span>
+          )}
         </div>
         
         <AgGridReact
@@ -142,13 +259,38 @@ export default function SheetDataEditorAGGridDebug({
             filter: true,
             resizable: true,
             editable: true,
+            minWidth: 100,
           }}
+          
+          // Selección y edición
           rowSelection="multiple"
           suppressRowClickSelection={true}
+          
+          // Animaciones y UX
           animateRows={true}
           enableBrowserTooltips={true}
-          suppressDragLeaveHidesColumns={true}
-          suppressMakeColumnVisibleAfterUnGroup={true}
+          
+          // Configuración responsive adicional
+          domLayout="normal"
+          
+          // Estilos para mejor responsive
+          onFirstDataRendered={(params) => {
+            // Auto-resize columns en dispositivos grandes
+            if (window.innerWidth > 1024) {
+              params.api.sizeColumnsToFit();
+            }
+          }}
+          
+          // Responsive breakpoints
+          onGridSizeChanged={(params) => {
+            if (window.innerWidth <= 768) {
+              // En móviles, usar scroll horizontal
+              params.api.sizeColumnsToFit();
+            } else {
+              // En desktop, ajustar columnas
+              params.api.sizeColumnsToFit();
+            }
+          }}
         />
       </div>
     );
