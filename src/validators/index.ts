@@ -29,7 +29,7 @@ function automaticFieldValidators(
     });
   }
 
-  if (columnDefinition.type === 'reference') {
+  /*if (columnDefinition.type === 'reference') {
     const referenceData = extractReferenceColumnPossibleValues(
       columnDefinition,
       allData
@@ -39,7 +39,7 @@ function automaticFieldValidators(
       values: referenceData,
       validate: 'includes',
     });
-  }
+  }*/
 
   return result;
 }
