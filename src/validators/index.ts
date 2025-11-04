@@ -82,7 +82,6 @@ function validateSheet(
 
       validators.forEach((v) => {
         const result = v.isValid(value, row);
-        console.log('Validating row:', rowIndex, 'column:', columnDefinition.id, 'value:', value, 'result:', result);
         if (result != null) {
           validationErrors.push({
             sheetId: sheetDefinition.id,
@@ -92,6 +91,69 @@ function validateSheet(
           });
         }
       });
+    });
+  });
+
+  return validationErrors;
+}
+
+/**
+ * Validates a single row for a specific sheet (optimized for single cell edits)
+ * @param sheetDefinition The sheet definition with validation rules
+ * @param row The row data to validate
+ * @param rowIndex The index of the row being validated
+ * @param allData All sheet states (for reference columns)
+ * @returns Array of validation errors for this specific row
+ */
+export function validateSingleRow(
+  sheetDefinition: SheetDefinition,
+  row: Record<string, any>,
+  rowIndex: number,
+  allData: SheetState[]
+): ImporterValidationError[] {
+  const validationErrors: ImporterValidationError[] = [];
+
+  if (!hasData(row)) {
+    return validationErrors;
+  }
+
+  // Build validators for all columns (same as validateSheet)
+  const validatorsByColumnId = eachWithObject<
+    SheetColumnDefinition,
+    Validator[]
+  >(sheetDefinition.columns, (columnDefinition, obj) => {
+    obj[columnDefinition.id] = [];
+
+    const validatorDefinitions = [
+      ...(columnDefinition.validators ?? []),
+      ...automaticFieldValidators(columnDefinition, allData),
+    ];
+
+    validatorDefinitions.forEach((validatorDefinition) => {
+      obj[columnDefinition.id].push(
+        buildValidatorFromDefinition(validatorDefinition)
+      );
+    });
+  });
+
+  // Validate only this row's columns
+  sheetDefinition.columns.forEach((columnDefinition) => {
+    if (!(columnDefinition.id in row) && !fieldIsRequired(columnDefinition)) {
+      return;
+    }
+    const value = row[columnDefinition.id];
+    const validators = validatorsByColumnId[columnDefinition.id];
+
+    validators.forEach((v) => {
+      const result = v.isValid(value, row);
+      if (result != null) {
+        validationErrors.push({
+          sheetId: sheetDefinition.id,
+          columnId: columnDefinition.id,
+          rowIndex,
+          message: result,
+        });
+      }
     });
   });
 

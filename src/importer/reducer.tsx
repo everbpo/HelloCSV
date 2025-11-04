@@ -15,7 +15,7 @@ import {
   SheetRow,
 } from '../types';
 import { setIndexedDBState } from './storage';
-import { applyValidations } from '../validators';
+import { applyValidations, validateSingleRow } from '../validators';
 // Future: supply anyOf groups via context or state extension
 const emptyAnyOfMap: Record<string, any[]> | undefined = undefined;
 import { createContext } from 'preact';
@@ -31,17 +31,24 @@ function recalculateCalculatedColumns(
     (s) => s.id === payload.sheetId
   );
 
-  if (sheetDefinition != null) {
-    const calculatedColumns = sheetDefinition.columns.filter(
-      (column) => column.type === 'calculated'
-    );
+  if (sheetDefinition == null) return row;
 
-    calculatedColumns.forEach((column) => {
-      row[column.id] = column.typeArguments.getValue(row);
-    });
-  }
+  const calculatedColumns = sheetDefinition.columns.filter(
+    (column) => column.type === 'calculated'
+  );
 
-  return row;
+  // Early return if no calculated columns
+  if (calculatedColumns.length === 0) return row;
+
+  const newRow = { ...row };
+
+  calculatedColumns.forEach((column) => {
+    // Only recalculate if dependencies might have changed
+    // For now, always recalculate (could be optimized with dependency tracking)
+    newRow[column.id] = column.typeArguments.getValue(newRow);
+  });
+
+  return newRow;
 }
 
 export const reducer = (
@@ -76,15 +83,19 @@ export const reducer = (
       };
     }
     case 'DATA_MAPPED': {
+      // Use optimized sheet definitions if provided (after column optimization)
+      const sheetDefinitionsToUse = action.payload.sheetDefinitions ?? state.sheetDefinitions;
+      
       return {
         ...state,
+        sheetDefinitions: sheetDefinitionsToUse,
         sheetData: applyTransformations(
-          state.sheetDefinitions,
+          sheetDefinitionsToUse,
           action.payload.mappedData
         ),
         mode: 'preview',
         validationErrors: applyValidations(
-          state.sheetDefinitions,
+          sheetDefinitionsToUse,
           action.payload.mappedData,
           emptyAnyOfMap
         ),
@@ -92,27 +103,94 @@ export const reducer = (
     }
     case 'CELL_CHANGED': {
       const currentData = state.sheetData;
+      const { sheetId, rowIndex, value } = action.payload;
 
+      // Only update the specific row, not the entire array
       const newData = currentData.map((sheet) => {
-        if (sheet.sheetId === action.payload.sheetId) {
-          const newRows = [...sheet.rows];
+        if (sheet.sheetId !== sheetId) return sheet;
 
-          newRows[action.payload.rowIndex] = recalculateCalculatedColumns(
-            action.payload.value,
-            action.payload,
-            state
+        const newRows = [...sheet.rows];
+        const currentRow = newRows[rowIndex] || {};
+        
+        // Merge the changed values with existing row data
+        const updatedRow = { ...currentRow, ...value };
+        
+        // Recalculate calculated columns for this row only
+        newRows[rowIndex] = recalculateCalculatedColumns(
+          updatedRow,
+          action.payload,
+          state
+        );
+
+        return { ...sheet, rows: newRows };
+      });
+
+      // Apply transformations and validations only to the changed sheet
+      const sheetDefinition = state.sheetDefinitions.find(
+        (s) => s.id === sheetId
+      );
+
+      if (sheetDefinition) {
+        // Apply transformations only to the changed sheet
+        const changedSheetData = newData.filter((s) => s.sheetId === sheetId);
+        const transformedSheetData = applyTransformations(
+          [sheetDefinition],
+          changedSheetData
+        );
+        
+        // Merge back with unchanged sheets
+        const finalData = newData.map((sheet) =>
+          sheet.sheetId === sheetId ? transformedSheetData[0] : sheet
+        );
+
+        // OPTIMIZED: Validate only the changed row instead of all data
+        const changedSheet = finalData.find((s) => s.sheetId === sheetId);
+        const changedRow = changedSheet?.rows[rowIndex];
+        
+        if (changedRow) {
+          // Get validation errors for only this specific row
+          const newRowErrors = validateSingleRow(
+            sheetDefinition,
+            changedRow,
+            rowIndex,
+            finalData
           );
 
-          return { ...sheet, rows: newRows };
-        } else {
-          return sheet;
+          // Remove old errors for this row and add new ones
+          const updatedErrors = [
+            ...state.validationErrors.filter(
+              (err) => !(err.sheetId === sheetId && err.rowIndex === rowIndex)
+            ),
+            ...newRowErrors,
+          ];
+
+          return {
+            ...state,
+            sheetData: finalData,
+            validationErrors: updatedErrors,
+          };
         }
-      });
+
+        // Fallback: if row not found, validate all (shouldn't happen)
+        return {
+          ...state,
+          sheetData: finalData,
+          validationErrors: applyValidations(
+            state.sheetDefinitions,
+            finalData,
+            emptyAnyOfMap
+          ),
+        };
+      }
 
       return {
         ...state,
-        sheetData: applyTransformations(state.sheetDefinitions, newData),
-  validationErrors: applyValidations(state.sheetDefinitions, newData, emptyAnyOfMap),
+        sheetData: newData,
+        validationErrors: applyValidations(
+          state.sheetDefinitions,
+          newData,
+          emptyAnyOfMap
+        ),
       };
     }
 

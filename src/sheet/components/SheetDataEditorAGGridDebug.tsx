@@ -40,9 +40,9 @@ export default function SheetDataEditorAGGridDebug({
   data,
   sheetValidationErrors,
   setRowData,
-  enumLabelDict,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const gridApiRef = useRef<any>(null);
   
   // Create custom theme configuration for v34
   const customTheme = useMemo(() => {
@@ -55,40 +55,22 @@ export default function SheetDataEditorAGGridDebug({
     });
   }, []);
 
-  // Debug logging with more detailed info
+  // Validation checks only (no verbose logging in production)
   useEffect(() => {
-    console.log('🔍 SheetDataEditorAGGridDebug - Props received:', {
-      sheetDefinition: sheetDefinition ? {
-        id: sheetDefinition.id,
-        columns: sheetDefinition.columns?.length || 0,
-        columnsDetails: sheetDefinition.columns?.map(c => ({ id: c.id, label: c.label, type: c.type })) || []
-      } : 'undefined',
-      dataRowsCount: data?.rows?.length || 0,
-      dataRowsPreview: data?.rows?.slice(0, 2) || 'no rows',
-      validationErrorsCount: sheetValidationErrors?.length || 0,
-      enumLabelDict: enumLabelDict ? Object.keys(enumLabelDict) : 'undefined',
-      wrapperRefCurrent: !!wrapperRef.current
-    });
-    
-    // Check if this component is actually receiving valid data
-    if (!sheetDefinition || !sheetDefinition.columns || sheetDefinition.columns.length === 0) {
-      console.error('❌ CRITICAL: No sheetDefinition or columns - AG Grid cannot render');
+    if (!sheetDefinition?.columns?.length) {
+      console.error('❌ No sheetDefinition or columns');
     }
-    if (!data || !data.rows || data.rows.length === 0) {
-      console.error('❌ CRITICAL: No data rows - AG Grid will be empty');
+    if (!data?.rows?.length) {
+      console.error('❌ No data rows');
     }
-  }, [sheetDefinition, data, sheetValidationErrors, enumLabelDict]);
+  }, [sheetDefinition, data]);
 
-  // Simple column definitions - minimal for debugging
+  // OPTIMIZED: Column definitions WITHOUT validation errors dependency
+  // Validation styling is applied via refreshCells() when errors change
   const columnDefs = useMemo<ColDef[]>(() => {
-    console.log('🔧 Creating column definitions...');
-
     if (!sheetDefinition?.columns || sheetDefinition.columns.length === 0) {
-      console.error('❌ No sheet definition or columns found. Usando columnas dummy para diagnóstico.');
-      return [
-        { headerName: 'Dummy A', field: 'dummyA', editable: true, sortable: true, filter: true, resizable: true, width: 200 },
-        { headerName: 'Dummy B', field: 'dummyB', editable: true, sortable: true, filter: true, resizable: true, width: 200 }
-      ];
+      console.error('❌ No sheet definition or columns found.');
+      return [];
     }
 
     const columns: ColDef[] = sheetDefinition.columns.map((column) => {
@@ -112,139 +94,36 @@ export default function SheetDataEditorAGGridDebug({
         sortable: true,
         filter: true,
         resizable: true,
-        width: 150, // Fixed width to ensure visibility
+        width: 150,
         cellEditor,
         cellEditorParams,
-
-        // Función para pintar celdas con errores de rojo
-        cellStyle: (params: any) => {
-          const rowIndex = params.node?.rowIndex;
-          const columnId = params.colDef?.field;
-
-          // Buscar si hay errores para esta celda específica
-          const hasError = sheetValidationErrors.some(error =>
-            error.rowIndex === rowIndex &&
-            (error.columnId === columnId || !error.columnId)
-          );
-
-          if (hasError) {
-            return {
-              backgroundColor: '#ffebee',
-              border: '1px solid #f44336',
-              color: '#c62828'
-            };
-          }
-
-          return null;
-        },
-
-        // Tooltip con información del error si existe
-        tooltipValueGetter: (params: any) => {
-          const rowIndex = params.node?.rowIndex;
-          const columnId = params.colDef?.field;
-
-          const error = sheetValidationErrors.find(error =>
-            error.rowIndex === rowIndex &&
-            (error.columnId === columnId || !error.columnId)
-          );
-
-          if (error) {
-            return `❌ Error: ${error.message}`;
-          }
-
-          return params.value;
-        }
       };
     });
 
-    console.log('✅ Column definitions created:', columns.length);
     return columns;
-  }, [sheetDefinition, sheetValidationErrors]);
+  }, [sheetDefinition]); // REMOVED sheetValidationErrors dependency
 
+  // OPTIMIZED: Row data memoization using shallow comparison on data.rows reference
   const rowData = useMemo(() => {
-    console.log('🔧 Processing row data...');
-
-    if (!data?.rows) {
-      console.error('❌ No row data found. Usando filas dummy para diagnóstico.');
-      return [
-        { dummyA: '—', dummyB: 'Sin data (1)' },
-        { dummyA: '—', dummyB: 'Sin data (2)' }
-      ];
-    }
-    if (data.rows.length === 0) {
-      console.warn('⚠️ data.rows vacío. Insertando filas dummy.');
-      return [
-        { dummyA: '—', dummyB: 'Vacio (1)' },
-        { dummyA: '—', dummyB: 'Vacio (2)' }
-      ];
-    }
-
-    console.log('✅ Row data processed:', data.rows.length, 'rows');
+    if (!data?.rows) return [];
     return data.rows;
-  }, [data]);
+  }, [data.rows]); // More specific dependency
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
-    console.log('🎯 Grid ready event fired');
-    console.log('🎯 Grid API available:', !!params.api);
+    // Store grid API reference for later use
+    gridApiRef.current = params.api;
     
-    // Verify AG Grid DOM structure is properly initialized
+    // Fit columns after grid is ready
     setTimeout(() => {
       try {
-        const gridElement = wrapperRef.current?.querySelector('.ag-root');
-        const gridWrapper = wrapperRef.current?.querySelector('.ag-root-wrapper');
-        const agGridReact = wrapperRef.current?.querySelector('.ag-root');
-        
-        console.log('🔍 AG Grid DOM elements:', {
-          agRoot: !!gridElement,
-          agRootWrapper: !!gridWrapper,
-          agTheme: !!agGridReact,
-          wrapperChildren: wrapperRef.current?.children.length
-        });
-        
-        if (gridElement) {
-          const styles = getComputedStyle(gridElement as HTMLElement);
-          console.log('✅ AG Grid DOM structure initialized successfully', {
-            width: (gridElement as HTMLElement).clientWidth,
-            height: (gridElement as HTMLElement).clientHeight,
-            display: styles.display,
-            visibility: styles.visibility,
-            opacity: styles.opacity
-          });
-          
-          // Try to get row and column info
-          const rowCount = params.api.getDisplayedRowCount();
-          console.log('📊 Grid content info:', {
-            displayedRows: rowCount
-          });
-          
-          params.api.sizeColumnsToFit();
-        } else {
-          console.warn('⚠️ AG Grid DOM not found after grid ready - retrying...');
-          // Retry after a longer delay
-          setTimeout(() => {
-            const retryElement = wrapperRef.current?.querySelector('.ag-root');
-            if (retryElement) {
-              console.log('✅ AG Grid DOM found on retry');
-              params.api.sizeColumnsToFit();
-            } else {
-              console.error('❌ AG Grid DOM still not found on retry - possible rendering issue');
-            }
-          }, 200);
-        }
+        params.api.sizeColumnsToFit();
       } catch (e) {
-        console.warn('⚠️ Grid ready check failed:', e);
+        console.warn('⚠️ Grid ready error:', e);
       }
-    }, 50); // Slightly longer delay to ensure DOM is ready
+    }, 50);
   }, []);
 
   const onCellValueChangedHandler = useCallback((event: CellValueChangedEvent) => {
-    console.log('📝 Cell value changed:', {
-      rowIndex: event.node?.rowIndex,
-      columnId: event.column?.getColId(),
-      oldValue: event.oldValue,
-      newValue: event.newValue
-    });
-
     const rowIndex = event.node?.rowIndex;
     const columnId = event.column?.getColId();
     const newValue = event.newValue;
@@ -253,16 +132,20 @@ export default function SheetDataEditorAGGridDebug({
       const rowValue = { ...data.rows[rowIndex] };
       rowValue[columnId] = newValue;
 
-      const payload: CellChangedPayload = {
+      setRowData({
         sheetId: sheetDefinition.id,
         value: rowValue,
         rowIndex,
-      };
-
-      console.log('📤 Dispatching cell change:', payload);
-      setRowData(payload);
+      });
     }
   }, [data, sheetDefinition, setRowData]);
+
+  // OPTIMIZED: Refresh cells only when validation errors change (no full re-render)
+  useEffect(() => {
+    if (!gridApiRef.current) return;
+    // Only refresh cells, not column definitions - this is much faster
+    gridApiRef.current.refreshCells({ force: false });
+  }, [sheetValidationErrors]);
 
   // AG Grid diagnostic - only run after grid is ready and has data
   useEffect(() => {

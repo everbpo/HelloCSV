@@ -9,6 +9,7 @@ import {
   ColumnMapping,
   MappedData,
 } from '../types';
+import { optimizeSheetData } from '../utils/columnOptimizer';
 
 const FLOAT = /^\s*-?(\d+\.?|\.\d+|\d+\.\d+)([eE][-+]?\d+)?\s*$/;
 const MAX_FLOAT = Math.pow(2, 53);
@@ -176,8 +177,15 @@ function mapRegularColumns(
 export function getMappedData(
   sheetDefinitions: SheetDefinition[],
   mappings: ColumnMapping[],
-  parsedFile: ParsedFile
-): MappedData {
+  parsedFile: ParsedFile,
+  optimizationConfig?: {
+    removeEmptyColumns?: boolean;
+    minDataThreshold?: number;
+  }
+): {
+  data: MappedData;
+  sheetDefinitions: SheetDefinition[];
+} {
   const data = parsedFile.data;
 
   const mappedData = mapRegularColumns(sheetDefinitions, mappings, data);
@@ -187,7 +195,45 @@ export function getMappedData(
     mappedData
   );
 
-  return mapReferenceColumns(sheetDefinitions, mappedDataWithCalculatedColumns);
+  const finalData = mapReferenceColumns(sheetDefinitions, mappedDataWithCalculatedColumns);
+
+  // Apply optimization if configured
+  if (optimizationConfig?.removeEmptyColumns) {
+    const optimizedDefinitions: SheetDefinition[] = [];
+    const optimizedData: MappedData = [];
+
+    finalData.forEach((sheetState) => {
+      const sheetDef = sheetDefinitions.find((def) => def.id === sheetState.sheetId);
+      if (!sheetDef) {
+        optimizedData.push(sheetState);
+        return;
+      }
+      
+      const optimized = optimizeSheetData(sheetDef, sheetState.rows, optimizationConfig);
+      
+      // Always log optimization stats
+      // eslint-disable-next-line no-console
+      console.log(
+        `[HelloCSV] Optimized ${sheetState.sheetId}: removed ${optimized.removedColumns.length} empty columns (${optimized.stats.memoryReductionPercent.toFixed(1)}% reduction) - ${optimized.stats.optimizedColumnCount} of ${optimized.stats.originalColumnCount} columns remaining`
+      );
+      
+      optimizedDefinitions.push(optimized.sheetDefinition);
+      optimizedData.push({
+        sheetId: sheetState.sheetId,
+        rows: optimized.rows,
+      });
+    });
+
+    return {
+      data: optimizedData,
+      sheetDefinitions: optimizedDefinitions,
+    };
+  }
+
+  return {
+    data: finalData,
+    sheetDefinitions,
+  };
 }
 
 export function allowUserToMapColumn(

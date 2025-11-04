@@ -144,20 +144,27 @@ class StateBuilder {
   public async confirmMappings() {
     const stateSoFar = this.getState();
 
-    const mappedData = getMappedData(
+    // Get optimization config from importer definition
+    const optimizationConfig = (this.importerDefinition as any).dataOptimization;
+
+    const result = getMappedData(
       this.importerDefinition.sheets,
       stateSoFar.columnMappings ?? [],
-      stateSoFar.parsedFile!
+      stateSoFar.parsedFile!,
+      optimizationConfig
     );
 
     const newMappedData =
       this.importerDefinition.onDataColumnsMapped != null
-        ? await this.importerDefinition.onDataColumnsMapped(mappedData)
-        : mappedData;
+        ? await this.importerDefinition.onDataColumnsMapped(result.data)
+        : result.data;
 
     this.buildSteps.push({
       type: 'DATA_MAPPED',
-      payload: { mappedData: newMappedData },
+      payload: { 
+        mappedData: newMappedData,
+        sheetDefinitions: result.sheetDefinitions,
+      },
     });
   }
 }

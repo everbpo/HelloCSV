@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useId } from 'preact/hooks';
 
 import HeaderMapper from '../mapper/components/HeaderMapper';
-import SheetDataEditorAGGridDebug from '../sheet/components/SheetDataEditorAGGridDebug';
+import SheetDataEditorHandsontable from '../sheet/components/SheetDataEditorHandsontable';
 import ImportStatus from '../status/components/ImportStatus';
 import { delay } from '../utils/timing';
 import {
@@ -14,7 +14,6 @@ import {
   ColumnMapping,
   ImporterDefinitionWithDefaults,
   ImporterDefinition,
-  RemoveRowsPayload,
   availableActionList,
 } from '../types';
 import { ThemeSetter } from '../theme/ThemeSetter';
@@ -47,7 +46,7 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
 
   const idPrefix = useId();
 
-  const { mode, currentSheetId, sheetData, columnMappings, validationErrors } =
+  const { mode, currentSheetId, sheetData, columnMappings, validationErrors, sheetDefinitions } =
     state;
 
   useEffect(() => {
@@ -69,11 +68,13 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
     );
   }, [sheetData]);
 
-  const currentSheetDefinition = sheets.find(
+  // Use optimized sheetDefinitions from state (after column optimization)
+  const currentSheetDefinition = sheetDefinitions.find(
     (sheet) => sheet.id === currentSheetId
   )!;
 
-  const enumLabelDict = getEnumLabelDict(sheets);
+  // Use optimized sheetDefinitions for enum labels
+  const enumLabelDict = getEnumLabelDict(sheetDefinitions);
 
   const preventUploadOnErrors =
     typeof preventUploadOnValidationErrors === 'function'
@@ -105,16 +106,7 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
   }
 
   function onCellChanged(payload: CellChangedPayload) {
-    console.log('Cell changed:', payload);
     dispatch({ type: 'CELL_CHANGED', payload });
-  }
-
-  function onRemoveRows(payload: RemoveRowsPayload) {
-    dispatch({ type: 'REMOVE_ROWS', payload });
-  }
-
-  function addEmptyRow() {
-    dispatch({ type: 'ADD_EMPTY_ROW' });
   }
 
   function resetState() {
@@ -203,17 +195,13 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
               aria-labelledby={`${idPrefix}-tab-${currentSheetId}`}
               tabIndex={0}
             >
-              <SheetDataEditorAGGridDebug
+              <SheetDataEditorHandsontable
                 data={currentSheetData}
                 sheetDefinition={currentSheetDefinition}
                 sheetValidationErrors={validationErrors.filter(
                   (error) => error.sheetId === currentSheetDefinition?.id
                 )}
                 setRowData={onCellChanged}
-                removeRows={onRemoveRows}
-                addEmptyRow={addEmptyRow}
-                resetState={resetState}
-                enumLabelDict={enumLabelDict}
               />
             </div>
             <div className="flex-none">
@@ -262,6 +250,13 @@ export default function Importer(props: ImporterDefinition) {
     csvDownloadMode: props.csvDownloadMode ?? 'value',
     allowManualDataEntry: props.allowManualDataEntry ?? false,
     availableActions: props.availableActions ?? [...availableActionList],
+    dataOptimization: props.dataOptimization ?? {
+      removeEmptyColumns: true, // Enable by default for better performance
+      minDataThreshold: 0,
+      enableChunkedProcessing: false,
+      chunkSize: 1000,
+      showOptimizationStats: false,
+    },
   };
 
   return (

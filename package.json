@@ -116,6 +116,8 @@
     "@tanstack/react-virtual": "^3.13.8",
     "ag-grid-react": "^34.2.0",
     "cva": "npm:class-variance-authority@^0.7.1",
+    "handsontable": "^16.1.1",
+    "@handsontable/react": "^16.1.1",
     "papaparse": "^5.4.1"
   }
 }

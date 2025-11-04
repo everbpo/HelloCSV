@@ -15,6 +15,19 @@ import type {
 
 // --------- Importer Definition Types ---------
 
+export interface DataOptimizationConfig {
+  /** Remove empty non-required columns before processing */
+  removeEmptyColumns?: boolean;
+  /** Minimum percentage of rows that must have data for column to be kept (0-100) */
+  minDataThreshold?: number;
+  /** Enable chunked processing for large datasets */
+  enableChunkedProcessing?: boolean;
+  /** Chunk size for batch processing (default: 1000 rows) */
+  chunkSize?: number;
+  /** Show optimization statistics to user */
+  showOptimizationStats?: boolean;
+}
+
 export interface ImporterDefinition {
   sheets: SheetDefinition[];
   initialState?: ImporterState;
@@ -42,6 +55,8 @@ export interface ImporterDefinition {
   ) => ColumnMapping[] | Promise<ColumnMapping[]>;
   persistenceConfig?: PersistenceConfig;
   csvDownloadMode?: CsvDownloadMode;
+  /** Configuration for optimizing large datasets */
+  dataOptimization?: DataOptimizationConfig;
 }
 
 export const availableActionList = [
@@ -85,6 +100,13 @@ export type ImporterMode =
   | 'completed'
   | 'failed';
 
+export interface OptimizationStats {
+  originalColumnCount: number;
+  optimizedColumnCount: number;
+  removedColumns: string[];
+  memoryReductionPercent: number;
+}
+
 export interface ImporterState {
   sheetDefinitions: SheetDefinition[];
   currentSheetId: string;
@@ -96,6 +118,7 @@ export interface ImporterState {
   columnMappings?: ColumnMapping[];
   importProgress: number;
   importStatistics?: ImportStatistics;
+  optimizationStats?: OptimizationStats;
 }
 
 export type ImporterOutputFieldType = string | number | undefined;
@@ -124,7 +147,13 @@ export type ImporterAction =
     } // Sets the parsed file and changes the mode to 'mapping'
   | { type: 'UPLOAD' } // Changes the mode to 'upload' - used when going back from in the mapping screen
   | { type: 'COLUMN_MAPPING_CHANGED'; payload: { mappings: ColumnMapping[] } } // Sets the proper mappings
-  | { type: 'DATA_MAPPED'; payload: { mappedData: MappedData } } // Sets mapped data as sheetData, optionally runs onDataColumnsMapped callback calls validations, changes the mode to 'preview'
+  | { 
+      type: 'DATA_MAPPED'; 
+      payload: { 
+        mappedData: MappedData;
+        sheetDefinitions?: SheetDefinition[]; // Optional: optimized sheet definitions (with removed columns)
+      };
+    } // Sets mapped data as sheetData, optionally runs onDataColumnsMapped callback calls validations, changes the mode to 'preview'
   | {
       type: 'CELL_CHANGED';
       payload: CellChangedPayload;
@@ -154,5 +183,6 @@ export type ImporterDefinitionWithDefaults = WithRequired<
   | 'persistenceConfig'
   | 'csvDownloadMode'
   | 'allowManualDataEntry'
-  | 'availableActions' // List of optional fields that need default value
+  | 'availableActions'
+  | 'dataOptimization' // List of optional fields that need default value
 >;
