@@ -40,6 +40,7 @@ function transformSheet(
       if (!isEmptyCell(cellValue)) {
         row[columnId] = pipeline.transform(cellValue);
       }
+       console.log('transformation');
     });
   });
 

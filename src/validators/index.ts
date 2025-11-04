@@ -29,7 +29,7 @@ function automaticFieldValidators(
     });
   }
 
-  /*if (columnDefinition.type === 'reference') {
+  if (columnDefinition.type === 'reference') {
     const referenceData = extractReferenceColumnPossibleValues(
       columnDefinition,
       allData
@@ -39,7 +39,7 @@ function automaticFieldValidators(
       values: referenceData,
       validate: 'includes',
     });
-  }*/
+  }
 
   return result;
 }
@@ -82,7 +82,7 @@ function validateSheet(
 
       validators.forEach((v) => {
         const result = v.isValid(value, row);
-
+        console.log('Validating row:', rowIndex, 'column:', columnDefinition.id, 'value:', value, 'result:', result);
         if (result != null) {
           validationErrors.push({
             sheetId: sheetDefinition.id,

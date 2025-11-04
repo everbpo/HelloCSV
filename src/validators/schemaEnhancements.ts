@@ -70,6 +70,7 @@ export function validateAnyOfGroups(
           message: `Debe cumplirse al menos uno de los conjuntos de campos: ${setsDesc}`,
         });
       }
+      console.log('AnyOf group validation for row:', rowIndex, 'group:', group.groupId, 'satisfies:', satisfies);
     });
   });
   return errors;

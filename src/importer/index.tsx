@@ -105,6 +105,7 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
   }
 
   function onCellChanged(payload: CellChangedPayload) {
+    console.log('Cell changed:', payload);
     dispatch({ type: 'CELL_CHANGED', payload });
   }
 
