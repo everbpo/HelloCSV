@@ -3,20 +3,15 @@ import {
   SheetDefinition,
   SheetState,
   ImporterValidationError,
-  EnumLabelDict,
-  RemoveRowsPayload,
+  CellChangedPayload,
 } from '@/types';
-import VirtualizedTable from './VirtualizedTable';
-import { useOptimizedCellChange } from '@/importer/hooks';
+import VirtualizedTableLite from './VirtualizedTableLite';
 
 interface Props {
   sheetDefinition: SheetDefinition;
   data: SheetState;
   sheetValidationErrors: ImporterValidationError[];
-  removeRows: (payload: RemoveRowsPayload) => void;
-  addEmptyRow: () => void;
-  resetState: () => void;
-  enumLabelDict: EnumLabelDict;
+  setRowData: (payload: CellChangedPayload) => void;
 }
 
 /**
@@ -27,9 +22,23 @@ export default function SheetDataEditorVirtualized({
   sheetDefinition,
   data,
   sheetValidationErrors,
+  setRowData,
 }: Props) {
-  // Use optimized cell change handler with debouncing
-  const handleCellChange = useOptimizedCellChange(data.sheetId);
+  // Cell change handler that wraps setRowData
+  const handleCellChange = useMemo(() => (
+    rowIndex: number,
+    columnId: string,
+    value: any
+  ) => {
+    const rowValue = { ...data.rows[rowIndex] };
+    rowValue[columnId] = value;
+    
+    setRowData({
+      sheetId: sheetDefinition.id,
+      value: rowValue,
+      rowIndex,
+    });
+  }, [data.rows, sheetDefinition.id, setRowData]);
 
   // Filter validation errors for current sheet
   const filteredErrors = useMemo(() => {
@@ -40,14 +49,11 @@ export default function SheetDataEditorVirtualized({
 
   return (
     <div className="flex h-full flex-col">
-      <VirtualizedTable
+      <VirtualizedTableLite
         data={data.rows}
         columns={sheetDefinition.columns}
         onCellChange={handleCellChange}
         validationErrors={filteredErrors}
-        height={600}
-        rowHeight={40}
-        defaultColumnWidth={150}
       />
     </div>
   );

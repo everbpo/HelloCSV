@@ -135,10 +135,7 @@ export default function SheetDataEditor({
             sheetDefinition={sheetDefinition}
             data={data}
             sheetValidationErrors={sheetValidationErrors}
-            removeRows={removeRows}
-            addEmptyRow={addEmptyRow}
-            resetState={resetState}
-            enumLabelDict={enumLabelDict}
+            setRowData={adaptedSetRowData}
           />
         ) : (
           <SheetDataEditorAGGrid

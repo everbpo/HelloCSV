@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useId } from 'preact/hooks';
 
 import HeaderMapper from '../mapper/components/HeaderMapper';
-import SheetDataEditorHandsontable from '../sheet/components/SheetDataEditorHandsontable';
+import SheetDataEditorVirtualized from '../sheet/components/SheetDataEditorVirtualized';
 import ImportStatus from '../status/components/ImportStatus';
 import { delay } from '../utils/timing';
 import {
@@ -195,7 +195,7 @@ function ImporterBody(importerDefinition: ImporterDefinitionWithDefaults) {
               aria-labelledby={`${idPrefix}-tab-${currentSheetId}`}
               tabIndex={0}
             >
-              <SheetDataEditorHandsontable
+              <SheetDataEditorVirtualized
                 data={currentSheetData}
                 sheetDefinition={currentSheetDefinition}
                 sheetValidationErrors={validationErrors.filter(
