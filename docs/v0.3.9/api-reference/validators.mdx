@@ -11,16 +11,27 @@ Ensures the field is not empty.
 
 **Additional:**  
 Accepts an optional `error` message.
+Additionally, accepts a `when` function that returns a boolean value. If the function returns false, the validation is skipped. Defaults to `() => true`.
+
+Example:
+
+```ts
+{
+  "validate": "required",
+  "when": (row) => row['employee.type'] === 'other'
+}
+```
 
 ---
 
 ## unique
 
-**Description:**  
+**Description:**
 Ensures the value is unique across rows.
 
-**Additional:**  
-Accepts an optional `error` message.
+**Additional:**
+Accepts an optional `error` message. Set `caseInsensitive` to `true` to compare
+string values case-insensitively.
 
 ---
 

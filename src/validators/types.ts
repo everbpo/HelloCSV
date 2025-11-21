@@ -21,16 +21,33 @@ export type ImporterValidatorType =
   | 'postal_code'
   | 'custom';
 
+export interface UniqueValidatorDefinition
+  extends ImporterValidatorDefinitionBase {
+  validate: 'unique';
+  caseInsensitive?: boolean;
+}
+
 export type ImporterValidatorDefinition =
+  | RequiredValidatorDefinition
+  | UniqueValidatorDefinition
   | ImporterValidatorDefinitionBase
   | MultiIncludesValidatorDefinition
   | IncludesValidatorDefinition
   | CustomValidatorDefinition
-  | RegexValidatorDefinition;
+  | RegexValidatorDefinition
+  | EmailValidatorDefinition
+  | PhoneNumberValidatorDefinition
+  | PostalCodeValidatorDefinition;
 
 export interface ImporterValidatorDefinitionBase {
   validate: ImporterValidatorType;
   error?: string;
+}
+
+export interface RequiredValidatorDefinition
+  extends ImporterValidatorDefinitionBase {
+  validate: 'required';
+  when?: (row: SheetRow) => boolean;
 }
 
 export interface MultiIncludesValidatorDefinition
@@ -47,6 +64,21 @@ export interface IncludesValidatorDefinition
 export interface RegexValidatorDefinition
   extends ImporterValidatorDefinitionBase {
   regex: string | RegExp;
+}
+
+export interface EmailValidatorDefinition
+  extends ImporterValidatorDefinitionBase {
+  validate: 'email';
+}
+
+export interface PhoneNumberValidatorDefinition
+  extends ImporterValidatorDefinitionBase {
+  validate: 'phone_number';
+}
+
+export interface PostalCodeValidatorDefinition
+  extends ImporterValidatorDefinitionBase {
+  validate: 'postal_code';
 }
 
 export interface CustomValidatorDefinition
